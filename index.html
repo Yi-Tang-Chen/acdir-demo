@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ACDiR Demo</title>
+    <meta
+      name="description"
+      content="Interactive ACDiR qualitative demo for a MATH500 case study."
+    >
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="demo-header" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">MATH500 qualitative case</p>
+          <h1 id="page-title">ACDiR</h1>
+        </div>
+        <div class="score-row" aria-label="Answer comparison">
+          <div>
+            <span>Base</span>
+            <strong>17</strong>
+          </div>
+          <div class="win">
+            <span>ACDiR</span>
+            <strong>14</strong>
+          </div>
+          <div>
+            <span>Gold</span>
+            <strong>14</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="stage" aria-label="ACDiR demo">
+        <aside class="side-panel">
+          <div class="panel-section">
+            <p class="label">Critic policy</p>
+            <p class="formula">&pi;<sub>&phi;</sub>(a | s)</p>
+          </div>
+          <div class="panel-section">
+            <p class="label">Signal</p>
+            <p class="formula">&Delta;R = R<sub>ACDiR</sub> - R<sub>base</sub></p>
+          </div>
+          <div class="panel-section">
+            <p class="label">Case</p>
+            <p class="compact">
+              Integer-root polynomial problem. ACDiR changes the final answer
+              from 17 to the correct value 14.
+            </p>
+          </div>
+          <div class="panel-section">
+            <p class="label">Interventions</p>
+            <p class="big-number"><span id="step-number">25</span><small>/244</small></p>
+          </div>
+        </aside>
+
+        <section class="viewer" aria-label="Selected intervention">
+          <div class="viewer-toolbar">
+            <div>
+              <p class="label">Diffusion step</p>
+              <p class="current-step" id="current-step">step 025</p>
+            </div>
+            <div class="controls" aria-label="Step controls">
+              <button type="button" class="icon-button" id="prev-step" aria-label="Previous step">
+                &lsaquo;
+              </button>
+              <button type="button" class="icon-button" id="next-step" aria-label="Next step">
+                &rsaquo;
+              </button>
+            </div>
+          </div>
+          <figure class="image-frame">
+            <img
+              id="step-image"
+              src="assets/steps/step_025.png"
+              alt="ACDiR intervention panel at diffusion step 25"
+            >
+          </figure>
+          <input
+            id="step-slider"
+            type="range"
+            min="0"
+            max="15"
+            value="0"
+            aria-label="Select diffusion step"
+          >
+        </section>
+      </section>
+
+      <section class="overview-grid" aria-label="Overview figures">
+        <figure>
+          <img src="assets/overview.png" alt="ACDiR case overview">
+          <figcaption>Overview</figcaption>
+        </figure>
+        <figure>
+          <img src="assets/timeline.png" alt="ACDiR remask timeline">
+          <figcaption>Timeline</figcaption>
+        </figure>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
