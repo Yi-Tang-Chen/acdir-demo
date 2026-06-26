@@ -14,6 +14,7 @@ const responseText = document.querySelector("#response-text");
 const showBaseResponseButton = document.querySelector("#show-base-response");
 const showGuidedResponseButton = document.querySelector("#show-guided-response");
 const closeResponseButton = document.querySelector("#close-response");
+const modeButtons = [...document.querySelectorAll(".mode-tab")];
 const prevButton = document.querySelector("#prev-step");
 const nextButton = document.querySelector("#next-step");
 const playButton = document.querySelector("#play-pause");
@@ -26,6 +27,7 @@ let trace = null;
 let index = 0;
 let timer = null;
 let blockStats = [];
+let viewMode = "guided";
 
 function mathText(value) {
   return String(value ?? "--").replaceAll("\\\\", "\\").trim() || "--";
@@ -43,12 +45,29 @@ function prepareFrame(frame) {
   };
 }
 
+function normalizeFrames(frames) {
+  return (frames || []).map(prepareFrame);
+}
+
+function activeFrames() {
+  if (!trace) return [];
+  if (viewMode === "base") return trace.baseFrames.length ? trace.baseFrames : trace.fallbackBaseFrames;
+  return trace.frames;
+}
+
+function finalTokenDifferent(position) {
+  const base = trace?.base_tokens?.[position] ?? "";
+  const guided = trace?.guided_tokens?.[position] ?? "";
+  return base !== guided;
+}
+
 function tokenClass(position, frame, visible) {
   const classes = ["token"];
   const remasked = frame.criticSet.has(position);
   if (!visible || remasked) classes.push("mask");
   if (frame.actorSet.has(position) && !remasked) classes.push("actor");
   if (remasked) classes.push("critic", "remask");
+  if (viewMode === "diff" && finalTokenDifferent(position)) classes.push("changed");
   return classes.join(" ");
 }
 
@@ -69,6 +88,12 @@ function renderAnswers() {
     "correct",
     mathText(trace.base_extracted) === mathText(trace.gold_extracted),
   );
+  const baseMode = modeButtons.find((button) => button.dataset.mode === "base");
+  const guidedMode = modeButtons.find((button) => button.dataset.mode === "guided");
+  const diffMode = modeButtons.find((button) => button.dataset.mode === "diff");
+  if (baseMode) baseMode.title = `Base trajectory: ${trace.num_base_frames || trace.baseFrames?.length || 0} steps, no critic remask`;
+  if (guidedMode) guidedMode.title = `Guided trajectory: ${trace.num_frames || trace.frames?.length || 0} steps, ${trace.remask_count || 0} critic remasks`;
+  if (diffMode) diffMode.title = "Guided trajectory with final-token differences from base highlighted";
 }
 
 function showResponse(kind) {
@@ -110,7 +135,9 @@ function buildBlockStats(frames) {
 
 function renderBlockTrack() {
   if (!trace) return;
-  const frame = trace.frames[index];
+  const frames = activeFrames();
+  const frame = frames[index];
+  if (!frame) return;
   const activeBlock = Number(frame.block_index ?? 0);
   const maxRemask = Math.max(1, ...blockStats.map((item) => item.remaskCount));
   const fragment = document.createDocumentFragment();
@@ -164,17 +191,18 @@ function renderTokens(frame) {
 }
 
 function render() {
-  if (!trace || trace.frames.length === 0) return;
+  const frames = activeFrames();
+  if (!trace || frames.length === 0) return;
 
-  const frame = trace.frames[index];
+  const frame = frames[index];
   renderTokens(frame);
 
-  const total = trace.frames.length;
+  const total = frames.length;
   const current = index + 1;
   const level = trace.level ? `L${String(trace.level).match(/\d+/)?.[0] || trace.level}` : "L--";
   const localRemask = frame.critic_remask?.length || 0;
 
-  stepLabel.textContent = `${level} ${current} / ${total}`;
+  stepLabel.textContent = `${level} ${viewMode} ${current} / ${total}`;
   remaskLabel.textContent = `remask ${localRemask} | total ${trace.remask_count ?? "--"}`;
   slider.value = String(index);
   renderBlockLabel(frame);
@@ -192,8 +220,9 @@ function stop() {
 }
 
 function goTo(nextIndex) {
-  if (!trace || trace.frames.length === 0) return;
-  index = Math.max(0, Math.min(trace.frames.length - 1, nextIndex));
+  const frames = activeFrames();
+  if (!trace || frames.length === 0) return;
+  index = Math.max(0, Math.min(frames.length - 1, nextIndex));
   render();
 }
 
@@ -203,7 +232,8 @@ function step(delta) {
 
 function tick() {
   if (!trace) return;
-  if (index >= trace.frames.length - 1) {
+  const frames = activeFrames();
+  if (index >= frames.length - 1) {
     stop();
     return;
   }
@@ -211,26 +241,27 @@ function tick() {
 }
 
 function play() {
-  if (!trace || trace.frames.length === 0) return;
+  if (!trace || activeFrames().length === 0) return;
   if (timer !== null) {
     stop();
     return;
   }
-  if (index >= trace.frames.length - 1) goTo(0);
+  if (index >= activeFrames().length - 1) goTo(0);
   timer = window.setInterval(tick, Number(speedSlider.value));
   render();
 }
 
 function nextRemask() {
   if (!trace) return;
-  for (let i = index + 1; i < trace.frames.length; i += 1) {
-    if (frameHasRemask(trace.frames[i])) {
+  const frames = activeFrames();
+  for (let i = index + 1; i < frames.length; i += 1) {
+    if (frameHasRemask(frames[i])) {
       goTo(i);
       return;
     }
   }
   for (let i = 0; i <= index; i += 1) {
-    if (frameHasRemask(trace.frames[i])) {
+    if (frameHasRemask(frames[i])) {
       goTo(i);
       return;
     }
@@ -243,14 +274,38 @@ async function fetchJson(path) {
   return response.json();
 }
 
+function buildFallbackBaseFrames(baseTokens, guidedFrames) {
+  if (!Array.isArray(baseTokens) || !Array.isArray(guidedFrames)) return [];
+  return guidedFrames.map((frame) => ({
+    ...frame,
+    tokens: baseTokens,
+    critic_remask: [],
+    criticSet: new Set(),
+  }));
+}
+
+function setMode(mode) {
+  viewMode = mode;
+  modeButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.mode === mode);
+  });
+  const frames = activeFrames();
+  index = Math.min(index, Math.max(0, frames.length - 1));
+  blockStats = buildBlockStats(frames);
+  render();
+}
+
 function loadTraceData(data) {
   trace = {
     ...data,
-    frames: (data.frames || []).map(prepareFrame),
+    frames: normalizeFrames(data.frames),
+    baseFrames: normalizeFrames(data.base_frames),
+    fallbackBaseFrames: [],
   };
-  blockStats = buildBlockStats(trace.frames);
+  trace.fallbackBaseFrames = buildFallbackBaseFrames(trace.base_tokens, trace.frames);
+  blockStats = buildBlockStats(activeFrames());
   index = 0;
-  slider.max = String(Math.max(0, trace.frames.length - 1));
+  slider.max = String(Math.max(0, activeFrames().length - 1));
   renderAnswers();
   render();
 }
@@ -314,6 +369,14 @@ showBaseResponseButton.addEventListener("click", () => showResponse("base"));
 showGuidedResponseButton.addEventListener("click", () => showResponse("guided"));
 
 closeResponseButton.addEventListener("click", closeResponse);
+
+modeButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    stop();
+    setMode(button.dataset.mode || "guided");
+    slider.max = String(Math.max(0, activeFrames().length - 1));
+  });
+});
 
 slider.addEventListener("input", (event) => {
   stop();

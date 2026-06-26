@@ -19,7 +19,7 @@
   "base_extracted": "17",
   "guided_extracted": "14",
   "gold_extracted": "14",
-  "payload_path": "Paper/Visualization/demo_idx490/candidates/rank000_level5_idx00490.pt",
+  "payload_path": "Paper/Visualization/demo_idx490_baseframes/candidates/rank000_level5_idx00490.pt",
   "payload_summary": {
     "dataset_index": 490,
     "level": "5",

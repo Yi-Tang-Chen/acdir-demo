@@ -24,12 +24,12 @@
       "base_extracted": "17",
       "guided_extracted": "14",
       "gold_extracted": "14",
-      "payload_path": "Paper/Visualization/demo_idx490/candidates/rank000_level5_idx00490.pt",
+      "payload_path": "Paper/Visualization/demo_idx490_baseframes/candidates/rank000_level5_idx00490.pt",
       "trace_path": "assets/levels/level_5/trace.json",
       "metadata_path": "assets/levels/level_5/metadata.json"
     }
   ],
   "config": "configs/acdir/rl/acdir.yaml",
   "critic_ckpt": "runs/ck/critic-ckpt-002000.pt",
-  "output_dir": "Paper/Visualization/demo_idx490"
+  "output_dir": "Paper/Visualization/demo_idx490_baseframes"
 }

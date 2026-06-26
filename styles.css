@@ -116,6 +116,33 @@ select {
   font-size: 0.86rem;
 }
 
+.mode-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 3px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.mode-tab {
+  height: 26px;
+  min-width: 0;
+  border: 0;
+  border-radius: 5px;
+  padding: 0 10px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.mode-tab.active {
+  background: var(--actor);
+  color: #0b0d09;
+}
+
 .blockbar {
   min-width: 0;
   padding: 10px clamp(12px, 2.2vw, 28px);
@@ -248,6 +275,12 @@ select {
   box-shadow:
     inset 0 -1px rgba(255, 139, 139, 0.5),
     0 0 0 2px rgba(255, 139, 139, 0.08);
+}
+
+.token.changed:not(.remask) {
+  border-color: rgba(112, 176, 255, 0.44);
+  background: rgba(112, 176, 255, 0.18);
+  color: #cfe4ff;
 }
 
 .token.actor.critic {
