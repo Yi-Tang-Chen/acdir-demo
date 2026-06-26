@@ -3,34 +3,44 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>ACDiR Generation Demo</title>
-    <meta name="description" content="Step-by-step ACDiR generation process.">
+    <title>ACDiR Demo</title>
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
-    <main class="stage" aria-label="ACDiR step-by-step generation process">
-      <figure class="viewer">
-        <img
-          id="step-image"
-          src="assets/steps/step_025.png"
-          alt="ACDiR generation step 25"
-        >
-      </figure>
+    <main class="demo" aria-label="ACDiR generation demo">
+      <header class="topbar">
+        <div class="brand">ACDiR</div>
+        <select id="level-select" aria-label="Level"></select>
+        <div class="stat" id="step-label">-- / --</div>
+        <div class="stat" id="remask-label">remask --</div>
+        <button type="button" id="fullscreen" title="Fullscreen" aria-label="Fullscreen">⛶</button>
+      </header>
 
-      <nav class="controls" aria-label="Generation controls">
-        <button type="button" id="prev-step" aria-label="Previous step">&lsaquo;</button>
-        <button type="button" id="play-pause" aria-label="Play generation">Play</button>
-        <button type="button" id="next-step" aria-label="Next step">&rsaquo;</button>
-        <span id="step-label" aria-live="polite">step 025</span>
-        <input
-          id="step-slider"
-          type="range"
-          min="0"
-          max="15"
-          value="0"
-          aria-label="Select generation step"
-        >
-      </nav>
+      <section class="answers" aria-label="Answers">
+        <span id="base-answer">base --</span>
+        <span id="guided-answer">guided --</span>
+        <span id="gold-answer">gold --</span>
+      </section>
+
+      <section id="token-view" class="token-view" aria-live="polite">
+        <span class="loading">Loading trace...</span>
+      </section>
+
+      <footer class="controls" aria-label="Controls">
+        <button type="button" id="prev-step" title="Previous step" aria-label="Previous step">‹</button>
+        <button type="button" id="play-pause" class="primary" title="Play / pause" aria-label="Play">▶</button>
+        <button type="button" id="next-step" title="Next step" aria-label="Next step">›</button>
+        <button type="button" id="next-remask" title="Next critic remask" aria-label="Next critic remask">◆</button>
+        <label class="toggle" title="Show only visible tokens">
+          <input id="visible-only" type="checkbox">
+          <span>visible</span>
+        </label>
+        <label class="speed" title="Playback speed">
+          <span>speed</span>
+          <input id="speed-slider" type="range" min="120" max="900" step="30" value="420">
+        </label>
+        <input id="step-slider" type="range" min="0" max="0" value="0" aria-label="Step">
+      </footer>
     </main>
 
     <script src="app.js"></script>

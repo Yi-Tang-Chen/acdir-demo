@@ -1,33 +1,99 @@
-const steps = [
-  25, 27, 48, 66, 108, 136, 138, 139, 144, 172, 177, 194, 224, 242, 243, 244,
-];
-
-const image = document.querySelector("#step-image");
+const view = document.querySelector("#token-view");
 const slider = document.querySelector("#step-slider");
+const speedSlider = document.querySelector("#speed-slider");
 const stepLabel = document.querySelector("#step-label");
+const remaskLabel = document.querySelector("#remask-label");
+const baseAnswer = document.querySelector("#base-answer");
+const guidedAnswer = document.querySelector("#guided-answer");
+const goldAnswer = document.querySelector("#gold-answer");
 const prevButton = document.querySelector("#prev-step");
 const nextButton = document.querySelector("#next-step");
 const playButton = document.querySelector("#play-pause");
+const nextRemaskButton = document.querySelector("#next-remask");
+const levelSelect = document.querySelector("#level-select");
+const visibleOnly = document.querySelector("#visible-only");
+const fullscreenButton = document.querySelector("#fullscreen");
 
+let trace = null;
 let index = 0;
 let timer = null;
 
-function stepPath(step) {
-  return `assets/steps/step_${String(step).padStart(3, "0")}.png`;
+function mathText(value) {
+  return String(value ?? "--").replaceAll("\\\\", "\\").trim() || "--";
+}
+
+function frameHasRemask(frame) {
+  return Array.isArray(frame.critic_remask) && frame.critic_remask.length > 0;
+}
+
+function prepareFrame(frame) {
+  return {
+    ...frame,
+    actorSet: new Set(frame.actor_unmask || []),
+    criticSet: new Set(frame.critic_remask || []),
+  };
+}
+
+function tokenClass(position, frame, visible) {
+  const classes = ["token"];
+  if (!visible) classes.push("mask");
+  if (frame.actorSet.has(position)) classes.push("actor");
+  if (frame.criticSet.has(position)) classes.push("critic");
+  return classes.join(" ");
+}
+
+function tokenText(token, visible) {
+  if (!visible) return "·";
+  return token || "";
+}
+
+function renderAnswers() {
+  baseAnswer.textContent = `base ${mathText(trace.base_extracted)}`;
+  guidedAnswer.textContent = `guided ${mathText(trace.guided_extracted)}`;
+  goldAnswer.textContent = `gold ${mathText(trace.gold_extracted)}`;
+  guidedAnswer.classList.toggle(
+    "correct",
+    mathText(trace.guided_extracted) === mathText(trace.gold_extracted),
+  );
+  baseAnswer.classList.toggle(
+    "correct",
+    mathText(trace.base_extracted) === mathText(trace.gold_extracted),
+  );
+}
+
+function renderTokens(frame) {
+  const fragment = document.createDocumentFragment();
+  const compact = visibleOnly.checked;
+
+  for (let position = 0; position < frame.tokens.length; position += 1) {
+    const visible = Boolean(frame.visible[position]);
+    if (compact && !visible && !frame.criticSet.has(position)) continue;
+
+    const span = document.createElement("span");
+    span.className = tokenClass(position, frame, visible);
+    span.textContent = tokenText(frame.tokens[position], visible);
+    fragment.appendChild(span);
+  }
+
+  view.replaceChildren(fragment);
 }
 
 function render() {
-  const step = steps[index];
-  const padded = String(step).padStart(3, "0");
-  image.src = stepPath(step);
-  image.alt = `ACDiR generation step ${step}`;
-  slider.value = String(index);
-  stepLabel.textContent = `step ${padded}`;
-}
+  if (!trace || trace.frames.length === 0) return;
 
-function go(delta) {
-  index = (index + delta + steps.length) % steps.length;
-  render();
+  const frame = trace.frames[index];
+  renderTokens(frame);
+
+  const total = trace.frames.length;
+  const current = index + 1;
+  const level = trace.level ? `L${String(trace.level).match(/\d+/)?.[0] || trace.level}` : "L--";
+  const localRemask = frame.critic_remask?.length || 0;
+
+  stepLabel.textContent = `${level} ${current} / ${total}`;
+  remaskLabel.textContent = `remask ${localRemask} | total ${trace.remask_count ?? "--"}`;
+  slider.value = String(index);
+  playButton.textContent = timer ? "Ⅱ" : "▶";
+  playButton.setAttribute("aria-label", timer ? "Pause" : "Play");
 }
 
 function stop() {
@@ -35,49 +101,160 @@ function stop() {
     window.clearInterval(timer);
     timer = null;
   }
-  playButton.textContent = "Play";
-  playButton.setAttribute("aria-label", "Play generation");
+  render();
+}
+
+function goTo(nextIndex) {
+  if (!trace || trace.frames.length === 0) return;
+  index = Math.max(0, Math.min(trace.frames.length - 1, nextIndex));
+  render();
+}
+
+function step(delta) {
+  goTo(index + delta);
+}
+
+function tick() {
+  if (!trace) return;
+  if (index >= trace.frames.length - 1) {
+    stop();
+    return;
+  }
+  step(1);
 }
 
 function play() {
+  if (!trace || trace.frames.length === 0) return;
   if (timer !== null) {
     stop();
     return;
   }
-  playButton.textContent = "Pause";
-  playButton.setAttribute("aria-label", "Pause generation");
-  timer = window.setInterval(() => go(1), 1300);
+  if (index >= trace.frames.length - 1) goTo(0);
+  timer = window.setInterval(tick, Number(speedSlider.value));
+  render();
+}
+
+function nextRemask() {
+  if (!trace) return;
+  for (let i = index + 1; i < trace.frames.length; i += 1) {
+    if (frameHasRemask(trace.frames[i])) {
+      goTo(i);
+      return;
+    }
+  }
+  for (let i = 0; i <= index; i += 1) {
+    if (frameHasRemask(trace.frames[i])) {
+      goTo(i);
+      return;
+    }
+  }
+}
+
+async function fetchJson(path) {
+  const response = await fetch(path, { cache: "no-store" });
+  if (!response.ok) throw new Error(`${path} HTTP ${response.status}`);
+  return response.json();
+}
+
+function loadTraceData(data) {
+  trace = {
+    ...data,
+    frames: (data.frames || []).map(prepareFrame),
+  };
+  index = 0;
+  slider.max = String(Math.max(0, trace.frames.length - 1));
+  renderAnswers();
+  render();
+}
+
+async function loadTrace(path) {
+  stop();
+  view.innerHTML = '<span class="loading">Loading trace...</span>';
+  loadTraceData(await fetchJson(path));
+}
+
+function caseLabel(item) {
+  const level = item.level_int ?? item.level ?? "";
+  const kind = String(item.selection_kind || "").replaceAll("_", " ");
+  return `Level ${String(level).match(/\d+/)?.[0] || level}${kind ? ` · ${kind}` : ""}`;
+}
+
+async function setupLevels() {
+  const manifest = await fetchJson("assets/manifest.json");
+  const cases = [...(manifest.cases || [])].sort((a, b) => Number(a.level_int) - Number(b.level_int));
+
+  levelSelect.replaceChildren();
+  for (const item of cases) {
+    const option = document.createElement("option");
+    option.value = item.trace_path;
+    option.textContent = caseLabel(item);
+    option.selected = Number(item.level_int) === Number(manifest.default_level);
+    levelSelect.appendChild(option);
+  }
+
+  await loadTrace(levelSelect.value || "assets/trace.json");
+}
+
+function toggleFullscreen() {
+  if (document.fullscreenElement) {
+    document.exitFullscreen();
+  } else {
+    document.documentElement.requestFullscreen?.();
+  }
 }
 
 prevButton.addEventListener("click", () => {
   stop();
-  go(-1);
+  step(-1);
 });
 
 nextButton.addEventListener("click", () => {
   stop();
-  go(1);
+  step(1);
 });
 
 playButton.addEventListener("click", play);
 
-slider.addEventListener("input", (event) => {
+nextRemaskButton.addEventListener("click", () => {
   stop();
-  index = Number(event.target.value);
-  render();
+  nextRemask();
 });
 
+slider.addEventListener("input", (event) => {
+  stop();
+  goTo(Number(event.target.value));
+});
+
+speedSlider.addEventListener("input", () => {
+  if (timer !== null) {
+    stop();
+    play();
+  }
+});
+
+visibleOnly.addEventListener("change", render);
+
+levelSelect.addEventListener("change", async (event) => {
+  await loadTrace(event.target.value);
+});
+
+fullscreenButton.addEventListener("click", toggleFullscreen);
+
 document.addEventListener("keydown", (event) => {
-  if (event.key === "ArrowLeft") {
-    prevButton.click();
-  }
-  if (event.key === "ArrowRight") {
-    nextButton.click();
-  }
+  if (event.key === "ArrowLeft") prevButton.click();
+  if (event.key === "ArrowRight") nextButton.click();
+  if (event.key.toLowerCase() === "r") nextRemaskButton.click();
+  if (event.key.toLowerCase() === "f") fullscreenButton.click();
   if (event.key === " ") {
     event.preventDefault();
     play();
   }
 });
 
-render();
+setupLevels().catch(async (error) => {
+  try {
+    await loadTrace("assets/trace.json");
+  } catch {
+    view.textContent = `Missing trace: ${error.message}`;
+  }
+});
