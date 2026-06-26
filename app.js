@@ -37,16 +37,34 @@ function frameHasRemask(frame) {
   return Array.isArray(frame.critic_remask) && frame.critic_remask.length > 0;
 }
 
-function prepareFrame(frame) {
+function effectiveRemask(frame, prevFrame, nextFrame) {
+  const original = Array.isArray(frame.critic_remask) ? frame.critic_remask : [];
+  if (original.length === 0) return [];
+  return original.filter((position) => {
+    const prevVisible = prevFrame ? Boolean(prevFrame.visible?.[position]) : false;
+    const currentVisible = Boolean(frame.visible?.[position]);
+    const nextVisible = nextFrame ? Boolean(nextFrame.visible?.[position]) : currentVisible;
+    const becameMaskedNow = prevFrame && prevVisible && !currentVisible;
+    const becomesMaskedNext = nextFrame && currentVisible && !nextVisible;
+    return becameMaskedNow || becomesMaskedNext;
+  });
+}
+
+function prepareFrame(frame, prevFrame, nextFrame) {
+  const filteredCriticRemask = effectiveRemask(frame, prevFrame, nextFrame);
   return {
     ...frame,
     actorSet: new Set(frame.actor_unmask || []),
-    criticSet: new Set(frame.critic_remask || []),
+    originalCriticRemask: Array.isArray(frame.critic_remask) ? [...frame.critic_remask] : [],
+    critic_remask: filteredCriticRemask,
+    criticSet: new Set(filteredCriticRemask),
   };
 }
 
 function normalizeFrames(frames) {
-  return (frames || []).map(prepareFrame);
+  return (frames || []).map((frame, index, allFrames) =>
+    prepareFrame(frame, allFrames[index - 1] || null, allFrames[index + 1] || null),
+  );
 }
 
 function activeFrames() {
@@ -92,7 +110,10 @@ function renderAnswers() {
   const guidedMode = modeButtons.find((button) => button.dataset.mode === "guided");
   const diffMode = modeButtons.find((button) => button.dataset.mode === "diff");
   if (baseMode) baseMode.title = `Base trajectory: ${trace.num_base_frames || trace.baseFrames?.length || 0} steps, no critic remask`;
-  if (guidedMode) guidedMode.title = `Guided trajectory: ${trace.num_frames || trace.frames?.length || 0} steps, ${trace.remask_count || 0} critic remasks`;
+  if (guidedMode) {
+    const hiddenLegacy = Math.max(0, (trace.rawRemaskCount || 0) - (trace.filteredRemaskCount || 0));
+    guidedMode.title = `Guided trajectory: ${trace.num_frames || trace.frames?.length || 0} steps, ${trace.filteredRemaskCount || 0} effective remasks${hiddenLegacy ? `, ${hiddenLegacy} legacy remasks hidden` : ""}`;
+  }
   if (diffMode) diffMode.title = "Guided trajectory with final-token differences from base highlighted";
 }
 
@@ -203,7 +224,7 @@ function render() {
   const localRemask = frame.critic_remask?.length || 0;
 
   stepLabel.textContent = `${level} ${viewMode} ${current} / ${total}`;
-  remaskLabel.textContent = `remask ${localRemask} | total ${trace.remask_count ?? "--"}`;
+  remaskLabel.textContent = `remask ${localRemask} | total ${trace.filteredRemaskCount ?? "--"}`;
   slider.value = String(index);
   renderBlockLabel(frame);
   renderBlockTrack();
@@ -296,12 +317,19 @@ function setMode(mode) {
 }
 
 function loadTraceData(data) {
+  const normalizedFrames = normalizeFrames(data.frames);
+  const normalizedBaseFrames = normalizeFrames(data.base_frames);
   trace = {
     ...data,
-    frames: normalizeFrames(data.frames),
-    baseFrames: normalizeFrames(data.base_frames),
+    rawRemaskCount: Number(data.remask_count || 0),
+    frames: normalizedFrames,
+    baseFrames: normalizedBaseFrames,
     fallbackBaseFrames: [],
   };
+  trace.filteredRemaskCount = trace.frames.reduce(
+    (total, frame) => total + (frame.critic_remask?.length || 0),
+    0,
+  );
   trace.fallbackBaseFrames = buildFallbackBaseFrames(trace.base_tokens, trace.frames);
   blockStats = buildBlockStats(activeFrames());
   index = 0;
