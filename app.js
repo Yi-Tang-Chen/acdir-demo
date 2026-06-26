@@ -6,6 +6,8 @@ const remaskLabel = document.querySelector("#remask-label");
 const baseAnswer = document.querySelector("#base-answer");
 const guidedAnswer = document.querySelector("#guided-answer");
 const goldAnswer = document.querySelector("#gold-answer");
+const blockLabel = document.querySelector("#block-label");
+const blockTrack = document.querySelector("#block-track");
 const prevButton = document.querySelector("#prev-step");
 const nextButton = document.querySelector("#next-step");
 const playButton = document.querySelector("#play-pause");
@@ -17,6 +19,7 @@ const fullscreenButton = document.querySelector("#fullscreen");
 let trace = null;
 let index = 0;
 let timer = null;
+let blockStats = [];
 
 function mathText(value) {
   return String(value ?? "--").replaceAll("\\\\", "\\").trim() || "--";
@@ -61,6 +64,65 @@ function renderAnswers() {
   );
 }
 
+function buildBlockStats(frames) {
+  const stats = new Map();
+  for (let frameIndex = 0; frameIndex < frames.length; frameIndex += 1) {
+    const frame = frames[frameIndex];
+    const blockIndex = Number(frame.block_index ?? 0);
+    if (!stats.has(blockIndex)) {
+      stats.set(blockIndex, {
+        blockIndex,
+        firstFrame: frameIndex,
+        lastFrame: frameIndex,
+        stepCount: 0,
+        remaskCount: 0,
+      });
+    }
+    const item = stats.get(blockIndex);
+    item.lastFrame = frameIndex;
+    item.stepCount += 1;
+    item.remaskCount += frame.critic_remask?.length || 0;
+  }
+  return [...stats.values()].sort((a, b) => a.blockIndex - b.blockIndex);
+}
+
+function renderBlockTrack() {
+  if (!trace) return;
+  const frame = trace.frames[index];
+  const activeBlock = Number(frame.block_index ?? 0);
+  const maxRemask = Math.max(1, ...blockStats.map((item) => item.remaskCount));
+  const fragment = document.createDocumentFragment();
+
+  for (const item of blockStats) {
+    const button = document.createElement("button");
+    const density = item.remaskCount / maxRemask;
+    button.type = "button";
+    button.className = "block-chip";
+    button.dataset.block = String(item.blockIndex);
+    button.style.setProperty("--remask-density", density.toFixed(3));
+    button.textContent = String(item.blockIndex + 1);
+    button.title = `Block ${item.blockIndex + 1}: steps ${item.firstFrame + 1}-${item.lastFrame + 1}, remask ${item.remaskCount}`;
+    button.setAttribute("aria-label", button.title);
+    if (item.blockIndex === activeBlock) button.classList.add("active");
+    button.addEventListener("click", () => {
+      stop();
+      goTo(item.firstFrame);
+    });
+    fragment.appendChild(button);
+  }
+
+  blockTrack.replaceChildren(fragment);
+}
+
+function renderBlockLabel(frame) {
+  const block = Number(frame.block_index ?? 0);
+  const local = Number(frame.step_index ?? 0);
+  const item = blockStats.find((candidate) => candidate.blockIndex === block);
+  const totalLocal = item?.stepCount || 16;
+  const remask = item?.remaskCount ?? 0;
+  blockLabel.textContent = `block ${block + 1} · ${local + 1}/${totalLocal} · ${remask} remask`;
+}
+
 function renderTokens(frame) {
   const fragment = document.createDocumentFragment();
   const compact = visibleOnly.checked;
@@ -92,6 +154,8 @@ function render() {
   stepLabel.textContent = `${level} ${current} / ${total}`;
   remaskLabel.textContent = `remask ${localRemask} | total ${trace.remask_count ?? "--"}`;
   slider.value = String(index);
+  renderBlockLabel(frame);
+  renderBlockTrack();
   playButton.textContent = timer ? "Ⅱ" : "▶";
   playButton.setAttribute("aria-label", timer ? "Pause" : "Play");
 }
@@ -161,6 +225,7 @@ function loadTraceData(data) {
     ...data,
     frames: (data.frames || []).map(prepareFrame),
   };
+  blockStats = buildBlockStats(trace.frames);
   index = 0;
   slider.max = String(Math.max(0, trace.frames.length - 1));
   renderAnswers();
