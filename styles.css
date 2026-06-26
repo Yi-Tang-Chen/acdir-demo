@@ -108,6 +108,14 @@ select {
   color: var(--ok);
 }
 
+.mini {
+  height: 34px;
+  min-width: 0;
+  padding: 0 12px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
 .blockbar {
   min-width: 0;
   padding: 9px clamp(12px, 2.2vw, 28px);
@@ -154,6 +162,37 @@ select {
   box-shadow:
     inset 0 -2px rgba(183, 239, 118, 0.58),
     0 0 0 3px rgba(183, 239, 118, 0.08);
+}
+
+.response-panel {
+  min-height: 0;
+  max-height: 32vh;
+  overflow: hidden;
+  border-bottom: 1px solid var(--line);
+  background: rgba(12, 14, 11, 0.97);
+}
+
+.response-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px clamp(12px, 2.2vw, 28px);
+  border-bottom: 1px solid rgba(246, 243, 234, 0.08);
+  color: var(--muted);
+  font-weight: 900;
+}
+
+#response-text {
+  height: calc(32vh - 55px);
+  margin: 0;
+  overflow: auto;
+  padding: 14px clamp(12px, 2.2vw, 28px) 18px;
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: clamp(13px, 1.05vw, 16px);
+  line-height: 1.55;
 }
 
 .token-view {

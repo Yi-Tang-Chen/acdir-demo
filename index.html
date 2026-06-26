@@ -20,11 +20,21 @@
         <span id="base-answer">base --</span>
         <span id="guided-answer">guided --</span>
         <span id="gold-answer">gold --</span>
+        <button type="button" id="show-base-response" class="mini" title="Show base response">base text</button>
+        <button type="button" id="show-guided-response" class="mini" title="Show guided response">guided text</button>
       </section>
 
       <section class="blockbar" aria-label="Generation blocks">
         <div id="block-label" class="block-label">block --</div>
         <div id="block-track" class="block-track"></div>
+      </section>
+
+      <section id="response-panel" class="response-panel" hidden>
+        <div class="response-head">
+          <span id="response-title">response</span>
+          <button type="button" id="close-response" class="mini" title="Close response">close</button>
+        </div>
+        <pre id="response-text"></pre>
       </section>
 
       <section id="token-view" class="token-view" aria-live="polite">

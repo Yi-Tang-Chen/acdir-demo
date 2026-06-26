@@ -1,35 +1,35 @@
 {
   "schema": "acdir_step_trace_demo_manifest_v1",
   "dataset": "MATH500",
-  "default_level": 1,
+  "default_level": 5,
   "cases": [
     {
       "rank": 0,
-      "dataset_index": 14,
-      "level_int": 1,
-      "level": "1",
+      "dataset_index": 490,
+      "level_int": 5,
+      "level": "5",
       "selection_kind": "rescue",
       "selection_score": [
         5.0,
         2.0,
         1.0,
         1.0,
-        37.0,
-        37.0
+        46.0,
+        46.0
       ],
       "base_reward": -1.0,
       "guided_reward": 1.0,
       "reward_delta": 2.0,
-      "remask_count": 37,
-      "base_extracted": "10",
-      "guided_extracted": "\\sqrt{51}",
-      "gold_extracted": "\\sqrt{51}",
-      "payload_path": "Paper/Visualization/acdir_cases_by_level/candidates/rank000_level1_idx00014.pt",
-      "trace_path": "assets/levels/level_1/trace.json",
-      "metadata_path": "assets/levels/level_1/metadata.json"
+      "remask_count": 46,
+      "base_extracted": "17",
+      "guided_extracted": "14",
+      "gold_extracted": "14",
+      "payload_path": "Paper/Visualization/demo_idx490/candidates/rank000_level5_idx00490.pt",
+      "trace_path": "assets/levels/level_5/trace.json",
+      "metadata_path": "assets/levels/level_5/metadata.json"
     }
   ],
   "config": "configs/acdir/rl/acdir.yaml",
-  "critic_ckpt": "runs/ck/acdir/2026-06-06/81107-gpus32-batch4-bf16-ACDiR-SFTGate-RejectOnly-v1/critic-ckpt-000040.pt",
-  "output_dir": "Paper/Visualization/acdir_cases_by_level"
+  "critic_ckpt": "runs/ck/critic-ckpt-002000.pt",
+  "output_dir": "Paper/Visualization/demo_idx490"
 }

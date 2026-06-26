@@ -8,6 +8,12 @@ const guidedAnswer = document.querySelector("#guided-answer");
 const goldAnswer = document.querySelector("#gold-answer");
 const blockLabel = document.querySelector("#block-label");
 const blockTrack = document.querySelector("#block-track");
+const responsePanel = document.querySelector("#response-panel");
+const responseTitle = document.querySelector("#response-title");
+const responseText = document.querySelector("#response-text");
+const showBaseResponseButton = document.querySelector("#show-base-response");
+const showGuidedResponseButton = document.querySelector("#show-guided-response");
+const closeResponseButton = document.querySelector("#close-response");
 const prevButton = document.querySelector("#prev-step");
 const nextButton = document.querySelector("#next-step");
 const playButton = document.querySelector("#play-pause");
@@ -62,6 +68,21 @@ function renderAnswers() {
     "correct",
     mathText(trace.base_extracted) === mathText(trace.gold_extracted),
   );
+}
+
+function showResponse(kind) {
+  if (!trace) return;
+  const isBase = kind === "base";
+  const label = isBase ? "base response" : "guided response";
+  const extracted = isBase ? trace.base_extracted : trace.guided_extracted;
+  const response = isBase ? trace.base_response : trace.guided_response;
+  responseTitle.textContent = `${label} · answer ${mathText(extracted)}`;
+  responseText.textContent = String(response || "").trim() || "--";
+  responsePanel.hidden = false;
+}
+
+function closeResponse() {
+  responsePanel.hidden = true;
 }
 
 function buildBlockStats(frames) {
@@ -234,6 +255,7 @@ function loadTraceData(data) {
 
 async function loadTrace(path) {
   stop();
+  closeResponse();
   view.innerHTML = '<span class="loading">Loading trace...</span>';
   loadTraceData(await fetchJson(path));
 }
@@ -285,6 +307,12 @@ nextRemaskButton.addEventListener("click", () => {
   nextRemask();
 });
 
+showBaseResponseButton.addEventListener("click", () => showResponse("base"));
+
+showGuidedResponseButton.addEventListener("click", () => showResponse("guided"));
+
+closeResponseButton.addEventListener("click", closeResponse);
+
 slider.addEventListener("input", (event) => {
   stop();
   goTo(Number(event.target.value));
@@ -310,6 +338,7 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "ArrowRight") nextButton.click();
   if (event.key.toLowerCase() === "r") nextRemaskButton.click();
   if (event.key.toLowerCase() === "f") fullscreenButton.click();
+  if (event.key === "Escape") closeResponse();
   if (event.key === " ") {
     event.preventDefault();
     play();
