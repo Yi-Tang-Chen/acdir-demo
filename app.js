@@ -45,14 +45,15 @@ function prepareFrame(frame) {
 
 function tokenClass(position, frame, visible) {
   const classes = ["token"];
-  if (!visible) classes.push("mask");
-  if (frame.actorSet.has(position)) classes.push("actor");
-  if (frame.criticSet.has(position)) classes.push("critic");
+  const remasked = frame.criticSet.has(position);
+  if (!visible || remasked) classes.push("mask");
+  if (frame.actorSet.has(position) && !remasked) classes.push("actor");
+  if (remasked) classes.push("critic", "remask");
   return classes.join(" ");
 }
 
-function tokenText(token, visible) {
-  if (!visible) return "·";
+function tokenText(token, visible, remasked) {
+  if (!visible || remasked) return "[MASK]";
   return token || "";
 }
 
@@ -150,11 +151,12 @@ function renderTokens(frame) {
 
   for (let position = 0; position < frame.tokens.length; position += 1) {
     const visible = Boolean(frame.visible[position]);
-    if (compact && !visible && !frame.criticSet.has(position)) continue;
+    const remasked = frame.criticSet.has(position);
+    if (compact && !visible && !remasked) continue;
 
     const span = document.createElement("span");
     span.className = tokenClass(position, frame, visible);
-    span.textContent = tokenText(frame.tokens[position], visible);
+    span.textContent = tokenText(frame.tokens[position], visible, remasked);
     fragment.appendChild(span);
   }
 
