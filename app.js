@@ -4,12 +4,13 @@ const steps = [
 
 const image = document.querySelector("#step-image");
 const slider = document.querySelector("#step-slider");
-const currentStep = document.querySelector("#current-step");
-const stepNumber = document.querySelector("#step-number");
+const stepLabel = document.querySelector("#step-label");
 const prevButton = document.querySelector("#prev-step");
 const nextButton = document.querySelector("#next-step");
+const playButton = document.querySelector("#play-pause");
 
 let index = 0;
+let timer = null;
 
 function stepPath(step) {
   return `assets/steps/step_${String(step).padStart(3, "0")}.png`;
@@ -17,24 +18,51 @@ function stepPath(step) {
 
 function render() {
   const step = steps[index];
+  const padded = String(step).padStart(3, "0");
   image.src = stepPath(step);
-  image.alt = `ACDiR intervention panel at diffusion step ${step}`;
+  image.alt = `ACDiR generation step ${step}`;
   slider.value = String(index);
-  currentStep.textContent = `step ${String(step).padStart(3, "0")}`;
-  stepNumber.textContent = String(step);
+  stepLabel.textContent = `step ${padded}`;
+}
+
+function go(delta) {
+  index = (index + delta + steps.length) % steps.length;
+  render();
+}
+
+function stop() {
+  if (timer !== null) {
+    window.clearInterval(timer);
+    timer = null;
+  }
+  playButton.textContent = "Play";
+  playButton.setAttribute("aria-label", "Play generation");
+}
+
+function play() {
+  if (timer !== null) {
+    stop();
+    return;
+  }
+  playButton.textContent = "Pause";
+  playButton.setAttribute("aria-label", "Pause generation");
+  timer = window.setInterval(() => go(1), 1300);
 }
 
 prevButton.addEventListener("click", () => {
-  index = (index + steps.length - 1) % steps.length;
-  render();
+  stop();
+  go(-1);
 });
 
 nextButton.addEventListener("click", () => {
-  index = (index + 1) % steps.length;
-  render();
+  stop();
+  go(1);
 });
 
+playButton.addEventListener("click", play);
+
 slider.addEventListener("input", (event) => {
+  stop();
   index = Number(event.target.value);
   render();
 });
@@ -45,6 +73,10 @@ document.addEventListener("keydown", (event) => {
   }
   if (event.key === "ArrowRight") {
     nextButton.click();
+  }
+  if (event.key === " ") {
+    event.preventDefault();
+    play();
   }
 });
 
