@@ -34,7 +34,7 @@ You already pushed the project branch, so the quickest setup is:
 The demo URL will be:
 
 ```text
-https://yi-tang-chen.github.io/project/Paper/demo/
+[https://yi-tang-chen.github.io/project/Paper/demo/](https://yi-tang-chen.github.io/acdir-demo/)
 ```
 
 ### Clean Root URL
