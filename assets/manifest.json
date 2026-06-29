@@ -1,7 +1,7 @@
 {
   "schema": "acdir_step_trace_demo_manifest_v1",
   "dataset": "MATH500",
-  "default_level": 1,
+  "default_level": 5,
   "cases": [
     {
       "rank": 0,
@@ -27,6 +27,31 @@
       "payload_path": "Paper/Visualization/acdir123503_rescue_demo/candidates/rank000_level1_idx00016.pt",
       "trace_path": "assets/levels/level_1/trace.json",
       "metadata_path": "assets/levels/level_1/metadata.json"
+    },
+    {
+      "rank": 0,
+      "dataset_index": 490,
+      "level_int": 5,
+      "level": "5",
+      "selection_kind": "rescue",
+      "selection_score": [
+        5.0,
+        2.0,
+        1.0,
+        1.0,
+        46.0,
+        46.0
+      ],
+      "base_reward": -1.0,
+      "guided_reward": 1.0,
+      "reward_delta": 2.0,
+      "remask_count": 46,
+      "base_extracted": "17",
+      "guided_extracted": "14",
+      "gold_extracted": "14",
+      "payload_path": "Paper/Visualization/demo_idx490_baseframes/candidates/rank000_level5_idx00490.pt",
+      "trace_path": "assets/levels/level_5/trace.json",
+      "metadata_path": "assets/levels/level_5/metadata.json"
     }
   ],
   "config": "configs/acdir/rl/acdir.yaml",
