@@ -37,34 +37,19 @@ function frameHasRemask(frame) {
   return Array.isArray(frame.critic_remask) && frame.critic_remask.length > 0;
 }
 
-function effectiveRemask(frame, prevFrame, nextFrame) {
-  const original = Array.isArray(frame.critic_remask) ? frame.critic_remask : [];
-  if (original.length === 0) return [];
-  return original.filter((position) => {
-    const prevVisible = prevFrame ? Boolean(prevFrame.visible?.[position]) : false;
-    const currentVisible = Boolean(frame.visible?.[position]);
-    const nextVisible = nextFrame ? Boolean(nextFrame.visible?.[position]) : currentVisible;
-    const becameMaskedNow = prevFrame && prevVisible && !currentVisible;
-    const becomesMaskedNext = nextFrame && currentVisible && !nextVisible;
-    return becameMaskedNow || becomesMaskedNext;
-  });
-}
-
-function prepareFrame(frame, prevFrame, nextFrame) {
-  const filteredCriticRemask = effectiveRemask(frame, prevFrame, nextFrame);
+function prepareFrame(frame) {
+  const rawCriticRemask = Array.isArray(frame.critic_remask) ? [...frame.critic_remask] : [];
   return {
     ...frame,
     actorSet: new Set(frame.actor_unmask || []),
-    originalCriticRemask: Array.isArray(frame.critic_remask) ? [...frame.critic_remask] : [],
-    critic_remask: filteredCriticRemask,
-    criticSet: new Set(filteredCriticRemask),
+    originalCriticRemask: rawCriticRemask,
+    critic_remask: rawCriticRemask,
+    criticSet: new Set(rawCriticRemask),
   };
 }
 
 function normalizeFrames(frames) {
-  return (frames || []).map((frame, index, allFrames) =>
-    prepareFrame(frame, allFrames[index - 1] || null, allFrames[index + 1] || null),
-  );
+  return (frames || []).map((frame) => prepareFrame(frame));
 }
 
 function activeFrames() {
@@ -111,8 +96,7 @@ function renderAnswers() {
   const diffMode = modeButtons.find((button) => button.dataset.mode === "diff");
   if (baseMode) baseMode.title = `Base trajectory: ${trace.num_base_frames || trace.baseFrames?.length || 0} steps, no critic remask`;
   if (guidedMode) {
-    const hiddenLegacy = Math.max(0, (trace.rawRemaskCount || 0) - (trace.filteredRemaskCount || 0));
-    guidedMode.title = `Guided trajectory: ${trace.num_frames || trace.frames?.length || 0} steps, ${trace.filteredRemaskCount || 0} effective remasks${hiddenLegacy ? `, ${hiddenLegacy} legacy remasks hidden` : ""}`;
+    guidedMode.title = `Guided trajectory: ${trace.num_frames || trace.frames?.length || 0} steps, ${trace.filteredRemaskCount || 0} critic remasks`;
   }
   if (diffMode) diffMode.title = "Guided trajectory with final-token differences from base highlighted";
 }
