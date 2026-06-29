@@ -5,6 +5,10 @@ It can be deployed directly with GitHub Pages.
 
 ## Local Preview
 
+Do not open `index.html` directly with a `file://` URL. The demo loads
+`assets/manifest.json` and trace files with `fetch`, so browsers require an
+HTTP server.
+
 ```bash
 python -m http.server 8000 -d Paper/demo
 ```

@@ -441,7 +441,11 @@ document.addEventListener("keydown", (event) => {
 setupLevels().catch(async (error) => {
   try {
     await loadTrace("assets/trace.json");
-  } catch {
-    view.textContent = `Missing trace: ${error.message}`;
+  } catch (fallbackError) {
+    const localFileHint =
+      window.location.protocol === "file:"
+        ? " Open this demo through an HTTP server, not by double-clicking index.html. Run: python -m http.server 8000 -d Paper/demo"
+        : "";
+    view.textContent = `Missing trace: ${error.message || fallbackError.message}.${localFileHint}`;
   }
 });
