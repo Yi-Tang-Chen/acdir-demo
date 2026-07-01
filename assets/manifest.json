@@ -5,7 +5,7 @@
   "cases": [
     {
       "rank": 0,
-      "dataset_index": 16,
+      "dataset_index": 14,
       "level_int": 1,
       "level": "1",
       "selection_kind": "rescue",
@@ -14,17 +14,17 @@
         2.0,
         1.0,
         1.0,
-        35.0,
-        35.0
+        44.0,
+        44.0
       ],
       "base_reward": -1.0,
       "guided_reward": 1.0,
       "reward_delta": 2.0,
-      "remask_count": 35,
-      "base_extracted": "50",
-      "guided_extracted": "-50",
-      "gold_extracted": "-50",
-      "payload_path": "Paper/Visualization/acdir123503_rescue_demo/candidates/rank000_level1_idx00016.pt",
+      "remask_count": 44,
+      "base_extracted": "10",
+      "guided_extracted": "\\sqrt{51}",
+      "gold_extracted": "\\sqrt{51}",
+      "payload_path": "Paper/Visualization/current_idx14_level1_demo/candidates/rank000_level1_idx00014.pt",
       "trace_path": "assets/levels/level_1/trace.json",
       "metadata_path": "assets/levels/level_1/metadata.json"
     },
