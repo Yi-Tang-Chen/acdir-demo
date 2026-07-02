@@ -25,8 +25,28 @@
           <button type="button" class="mode-tab" data-mode="base">base</button>
           <button type="button" class="mode-tab" data-mode="diff">diff</button>
         </div>
+        <button type="button" id="show-problem" class="mini" title="Show problem">problem</button>
         <button type="button" id="show-base-response" class="mini" title="Show base response">base text</button>
         <button type="button" id="show-guided-response" class="mini" title="Show guided response">guided text</button>
+      </section>
+
+      <section class="change-panel" aria-label="Effective changed tokens">
+        <div id="change-summary" class="change-summary">eff change --</div>
+        <div class="change-table-wrap">
+          <table class="change-table">
+            <thead>
+              <tr>
+                <th>step</th>
+                <th>pos</th>
+                <th>before</th>
+                <th>after</th>
+              </tr>
+            </thead>
+            <tbody id="change-table-body">
+              <tr><td colspan="4">--</td></tr>
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section class="blockbar" aria-label="Generation blocks">
@@ -39,7 +59,7 @@
           <span id="response-title">response</span>
           <button type="button" id="close-response" class="mini" title="Close response">close</button>
         </div>
-        <pre id="response-text"></pre>
+        <div id="response-text"></div>
       </section>
 
       <section id="token-view" class="token-view" aria-live="polite">
@@ -63,6 +83,18 @@
       </footer>
     </main>
 
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [["$", "$"], ["\\(", "\\)"]],
+          displayMath: [["$$", "$$"], ["\\[", "\\]"]]
+        },
+        options: {
+          skipHtmlTags: ["script", "noscript", "style", "textarea", "code"]
+        }
+      };
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

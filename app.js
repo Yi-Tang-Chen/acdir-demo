@@ -11,9 +11,12 @@ const blockTrack = document.querySelector("#block-track");
 const responsePanel = document.querySelector("#response-panel");
 const responseTitle = document.querySelector("#response-title");
 const responseText = document.querySelector("#response-text");
+const showProblemButton = document.querySelector("#show-problem");
 const showBaseResponseButton = document.querySelector("#show-base-response");
 const showGuidedResponseButton = document.querySelector("#show-guided-response");
 const closeResponseButton = document.querySelector("#close-response");
+const changeSummary = document.querySelector("#change-summary");
+const changeTableBody = document.querySelector("#change-table-body");
 const modeButtons = [...document.querySelectorAll(".mode-tab")];
 const prevButton = document.querySelector("#prev-step");
 const nextButton = document.querySelector("#next-step");
@@ -37,6 +40,20 @@ function frameHasRemask(frame) {
   return Array.isArray(frame.critic_remask) && frame.critic_remask.length > 0;
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function shortToken(value) {
+  const text = String(value ?? "").replace(/\s+/g, " ");
+  return text.length > 18 ? `${text.slice(0, 17)}…` : text || "∅";
+}
+
 function prepareFrame(frame) {
   const rawCriticRemask = Array.isArray(frame.critic_remask) ? [...frame.critic_remask] : [];
   return {
@@ -45,11 +62,53 @@ function prepareFrame(frame) {
     originalCriticRemask: rawCriticRemask,
     critic_remask: rawCriticRemask,
     criticSet: new Set(rawCriticRemask),
+    effectiveChanges: [],
+    effectiveSet: new Set(),
+    cumulativeRemask: 0,
+    cumulativeEffective: 0,
   };
 }
 
 function normalizeFrames(frames) {
   return (frames || []).map((frame) => prepareFrame(frame));
+}
+
+function annotateEffectiveChanges(frames) {
+  const changes = [];
+  let cumulativeRemask = 0;
+  let cumulativeEffective = 0;
+
+  for (let frameIndex = 0; frameIndex < frames.length; frameIndex += 1) {
+    const frame = frames[frameIndex];
+    const previous = frameIndex > 0 ? frames[frameIndex - 1] : null;
+    const localChanges = [];
+    cumulativeRemask += frame.critic_remask?.length || 0;
+
+    for (const position of frame.critic_remask || []) {
+      const before = previous?.tokens?.[position] ?? "";
+      const after = frame.tokens?.[position] ?? "";
+      if (before === after) continue;
+      const record = {
+        frameIndex,
+        stepNumber: Number(frame.step_number ?? frameIndex + 1),
+        blockIndex: Number(frame.block_index ?? 0),
+        stepIndex: Number(frame.step_index ?? 0),
+        position,
+        before,
+        after,
+      };
+      localChanges.push(record);
+      changes.push(record);
+    }
+
+    frame.effectiveChanges = localChanges;
+    frame.effectiveSet = new Set(localChanges.map((item) => item.position));
+    cumulativeEffective += localChanges.length;
+    frame.cumulativeRemask = cumulativeRemask;
+    frame.cumulativeEffective = cumulativeEffective;
+  }
+
+  return changes;
 }
 
 function activeFrames() {
@@ -67,15 +126,17 @@ function finalTokenDifferent(position) {
 function tokenClass(position, frame, visible) {
   const classes = ["token"];
   const remasked = frame.criticSet.has(position);
-  if (!visible || remasked) classes.push("mask");
+  const effective = frame.effectiveSet?.has(position);
+  if (!visible || (remasked && !effective)) classes.push("mask");
   if (frame.actorSet.has(position) && !remasked) classes.push("actor");
   if (remasked) classes.push("critic", "remask");
+  if (effective) classes.push("effective");
   if (viewMode === "diff" && finalTokenDifferent(position)) classes.push("changed");
   return classes.join(" ");
 }
 
-function tokenText(token, visible, remasked) {
-  if (!visible || remasked) return "[MASK]";
+function tokenText(token, visible, remasked, effective) {
+  if (!visible || (remasked && !effective)) return "[MASK]";
   return token || "";
 }
 
@@ -108,12 +169,79 @@ function showResponse(kind) {
   const extracted = isBase ? trace.base_extracted : trace.guided_extracted;
   const response = isBase ? trace.base_response : trace.guided_response;
   responseTitle.textContent = `${label} · answer ${mathText(extracted)}`;
+  responseText.classList.remove("math-problem");
   responseText.textContent = String(response || "").trim() || "--";
   responsePanel.hidden = false;
 }
 
+function typesetPanel() {
+  if (window.MathJax?.typesetPromise) {
+    window.MathJax.typesetPromise([responseText]).catch(() => {});
+  }
+}
+
+function showProblem() {
+  if (!trace) return;
+  const level = trace.level ? `L${String(trace.level).match(/\d+/)?.[0] || trace.level}` : "L--";
+  responseTitle.textContent = `${level} problem`;
+  responseText.classList.add("math-problem");
+  responseText.innerHTML = escapeHtml(trace.problem || "--").replaceAll("\n", "<br>");
+  responsePanel.hidden = false;
+  typesetPanel();
+}
+
 function closeResponse() {
   responsePanel.hidden = true;
+}
+
+function renderEffectiveChanges() {
+  if (!trace) return;
+  const changes = trace.effectiveChanges || [];
+  changeSummary.textContent = `eff change ${changes.length} / remask ${trace.filteredRemaskCount ?? "--"}`;
+
+  if (changes.length === 0) {
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 4;
+    cell.textContent = "no changed remask tokens";
+    row.appendChild(cell);
+    changeTableBody.replaceChildren(row);
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  for (const item of changes) {
+    const row = document.createElement("tr");
+
+    const stepCell = document.createElement("td");
+    const jump = document.createElement("button");
+    jump.type = "button";
+    jump.textContent = `B${item.blockIndex + 1}.${item.stepIndex + 1}`;
+    jump.title = `Jump to step ${item.stepNumber}`;
+    jump.addEventListener("click", () => {
+      stop();
+      setMode("guided");
+      goTo(item.frameIndex);
+    });
+    stepCell.appendChild(jump);
+
+    const posCell = document.createElement("td");
+    posCell.textContent = String(item.position);
+
+    const beforeCell = document.createElement("td");
+    beforeCell.textContent = shortToken(item.before);
+    beforeCell.title = String(item.before || "");
+
+    const afterCell = document.createElement("td");
+    afterCell.className = "after";
+    afterCell.textContent = shortToken(item.after);
+    afterCell.title = String(item.after || "");
+
+    row.append(stepCell, posCell, beforeCell, afterCell);
+    fragment.appendChild(row);
+  }
+
+  changeTableBody.replaceChildren(fragment);
 }
 
 function buildBlockStats(frames) {
@@ -187,8 +315,13 @@ function renderTokens(frame) {
     if (compact && !visible && !remasked) continue;
 
     const span = document.createElement("span");
+    const effective = frame.effectiveSet?.has(position);
     span.className = tokenClass(position, frame, visible);
-    span.textContent = tokenText(frame.tokens[position], visible, remasked);
+    span.textContent = tokenText(frame.tokens[position], visible, remasked, effective);
+    if (effective) {
+      const change = frame.effectiveChanges.find((item) => item.position === position);
+      span.title = `changed after remask: ${shortToken(change?.before)} → ${shortToken(change?.after)}`;
+    }
     fragment.appendChild(span);
   }
 
@@ -206,10 +339,19 @@ function render() {
   const current = index + 1;
   const level = trace.level ? `L${String(trace.level).match(/\d+/)?.[0] || trace.level}` : "L--";
   const localRemask = frame.critic_remask?.length || 0;
+  const localEffective = frame.effectiveChanges?.length || 0;
 
   stepLabel.textContent = `${level} ${viewMode} ${current} / ${total}`;
-  remaskLabel.textContent = `remask ${localRemask} | total ${trace.filteredRemaskCount ?? "--"}`;
+  if (viewMode === "base") {
+    remaskLabel.textContent = "remask --";
+    remaskLabel.title = "Base trajectory has no critic remask.";
+  } else {
+    remaskLabel.textContent = `remask ${frame.cumulativeRemask ?? 0}/${trace.filteredRemaskCount ?? "--"} · eff ${frame.cumulativeEffective ?? 0}/${trace.effectiveChangeCount ?? 0}`;
+    remaskLabel.title = `This step: remask ${localRemask}, effective change ${localEffective}.`;
+  }
   slider.value = String(index);
+  const progress = total > 1 ? (index / (total - 1)) * 100 : 0;
+  slider.style.setProperty("--progress", `${progress.toFixed(3)}%`);
   renderBlockLabel(frame);
   renderBlockTrack();
   playButton.textContent = timer ? "Ⅱ" : "▶";
@@ -222,6 +364,13 @@ function stop() {
     timer = null;
   }
   render();
+}
+
+function pauseWithoutRender() {
+  if (timer !== null) {
+    window.clearInterval(timer);
+    timer = null;
+  }
 }
 
 function goTo(nextIndex) {
@@ -284,8 +433,13 @@ function buildFallbackBaseFrames(baseTokens, guidedFrames) {
   return guidedFrames.map((frame) => ({
     ...frame,
     tokens: baseTokens,
+    actorSet: new Set(),
     critic_remask: [],
     criticSet: new Set(),
+    effectiveChanges: [],
+    effectiveSet: new Set(),
+    cumulativeRemask: 0,
+    cumulativeEffective: 0,
   }));
 }
 
@@ -303,12 +457,15 @@ function setMode(mode) {
 function loadTraceData(data) {
   const normalizedFrames = normalizeFrames(data.frames);
   const normalizedBaseFrames = normalizeFrames(data.base_frames);
+  const effectiveChanges = annotateEffectiveChanges(normalizedFrames);
   trace = {
     ...data,
     rawRemaskCount: Number(data.remask_count || 0),
     frames: normalizedFrames,
     baseFrames: normalizedBaseFrames,
     fallbackBaseFrames: [],
+    effectiveChanges,
+    effectiveChangeCount: effectiveChanges.length,
   };
   trace.filteredRemaskCount = trace.frames.reduce(
     (total, frame) => total + (frame.critic_remask?.length || 0),
@@ -319,6 +476,7 @@ function loadTraceData(data) {
   index = 0;
   slider.max = String(Math.max(0, activeFrames().length - 1));
   renderAnswers();
+  renderEffectiveChanges();
   render();
 }
 
@@ -376,6 +534,8 @@ nextRemaskButton.addEventListener("click", () => {
   nextRemask();
 });
 
+showProblemButton.addEventListener("click", showProblem);
+
 showBaseResponseButton.addEventListener("click", () => showResponse("base"));
 
 showGuidedResponseButton.addEventListener("click", () => showResponse("guided"));
@@ -390,9 +550,18 @@ modeButtons.forEach((button) => {
   });
 });
 
+slider.addEventListener("pointerdown", pauseWithoutRender);
+
 slider.addEventListener("input", (event) => {
-  stop();
-  goTo(Number(event.target.value));
+  const nextIndex = Number(event.target.value);
+  pauseWithoutRender();
+  goTo(nextIndex);
+});
+
+slider.addEventListener("change", (event) => {
+  const nextIndex = Number(event.target.value);
+  pauseWithoutRender();
+  goTo(nextIndex);
 });
 
 speedSlider.addEventListener("input", () => {
